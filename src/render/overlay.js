@@ -37,7 +37,7 @@ export function drawOverlay(ctx, view, s, ui) {
     if (!onScreen(x, y, regionScale)) continue
     if (r.automated && showShips) {
       const info = S.slotsOf(s, rk)
-      for (const sh of decorativeShips(s.seed, rk, info, r.miners, s.t)) drawMiner(sh, 0.55, TEAL)
+      for (const sh of decorativeShips(s.seed, rk, info, r.miners, s.t)) drawMiner(sh, 0.85, TEAL)
     }
     if (r.relay) drawRelay(x, y, r, rk === ui.selectedRegion)
     if (r.automated && k * regionScale > 120 && k * regionScale < 1400) {

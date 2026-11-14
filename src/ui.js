@@ -125,8 +125,10 @@ export function hintFor(s, ui) {
   const rk = S.flagRegion(s), r = s.regions[rk]
   if (r && r.relay && !r.relay.built) return 'The relay is going up: soon the whole region is under your control.'
   if (r && r.relay && r.relay.built && !r.automated) return 'Your relay holds the region. <b style="color:var(--teal)">Automate</b> it: its miners will run themselves and your commands come back.'
-  if (anyAuto && !seen('flag-arrived') && s.flag.tier === 1) return 'Automated: the region now earns its steady state, with no commands. Scroll out to see further, then move on: <kbd>M</kbd> and click a tile in a neighbouring region.'
+  if (r && r.automated && s.flag.tier === 1 && !s.flag.dest && Object.values(s.regions).filter(x => x.automated).length === 1) return 'Automated: the region now earns its steady state, with no commands. Scroll out to see further, then move on: <kbd>M</kbd> and click a tile in a neighbouring region.'
+  if (s.flag.tier === 1 && anyAuto && (!r || !r.relay) && !s.flag.dest) return `A fresh region: miners are cheap here again (◆ ${fmt(S.costs(s).miner)}). Put some to work, then save for its relay (◆ ${fmt(S.costs(s).relay)}).`
   if (s.flag.tier === 1 && !seen('carrier') && s.res > S.costs(s).carrier * 0.5) return 'A <b>carrier</b> is within reach: a flagship one level up, holding 49 regions at once.'
+  if (s.flag.tier === 2 && s.ships.some(x => x.kind === 'seeder' && !x.order) && S.commandsUsed(s) >= S.commandsMax(s)) return 'Your commands are all held by miners. Release one (select it, then <b>Release</b>), or hand them to automation, to launch the seeder.'
   if (s.flag.tier === 2 && !seen('seeder-1')) return 'Build a <b>seeder</b>, select it, and click a region inside the carrier\'s outline: it settles the region, automated.'
   if (s.flag.tier === 2 && !s.hub && s.res > S.costs(s).hub * 0.4) return 'A <b>hub</b> holds a whole level-6 region (343 regions) and automates them all.'
   if (s.hub && s.hub.built && !s.hub.automated) return 'Automate the hub.'

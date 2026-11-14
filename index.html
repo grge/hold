@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hold</title>
+<meta name="description" content="A prototype: command a swarm on nested Gosper tiles, automate what you hold, zoom out.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="ground"></canvas>
+<canvas id="overlay"></canvas>
+
+<header id="hud">
+  <div class="stat res"><span class="gem"></span><b id="res">0</b><span id="rate" class="dim">+0/s</span></div>
+  <div class="stat"><span class="dim">Commands</span> <span id="cmds" class="pips"></span></div>
+  <div class="stat zoom"><span class="dim">View</span> <span id="zoom"></span></div>
+  <div class="stat speed" id="speed" title="Prototype tool: run the game faster">
+    <button data-speed="1" aria-pressed="true">×1</button><button data-speed="4">×4</button><button data-speed="16">×16</button>
+  </div>
+</header>
+
+<aside id="panel" aria-live="polite"></aside>
+
+<div id="hint"></div>
+<div id="toasts"></div>
+<div id="tip" hidden></div>
+
+<div id="nogl" hidden>
+  <p>Hold needs WebGL 2, which this browser hasn't enabled.</p>
+</div>
+
+<footer id="keys" class="dim">
+  drag to pan · scroll to zoom · <kbd>M</kbd> move flagship · <kbd>B</kbd> buy miner · <kbd>F</kbd> find flagship · <kbd>Tab</kbd> next idle ship · <kbd>Esc</kbd> deselect
+</footer>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

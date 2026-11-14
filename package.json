@@ -1,0 +1,11 @@
+{
+  "name": "hold",
+  "private": true,
+  "type": "module",
+  "description": "A command-budget incremental on nested Gosper tiles. Prototype.",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "bot": "node tools/bot.mjs",
+    "serve": "python3 -m http.server 8000"
+  }
+}

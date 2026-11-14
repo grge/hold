@@ -1,0 +1,15 @@
+{
+  "_": "The pacing we're aiming for, in minutes, for an attentive player. tools/bot.mjs reports the bot's times against these.",
+  "first-delivery": 0.2,
+  "miner-1": 0.4,
+  "up-drill-1": 1,
+  "relay-started": 3.5,
+  "automated-1": 4,
+  "automated-2": 6.5,
+  "automated-3": 8.5,
+  "carrier": 17,
+  "seeder-1": 17.5,
+  "hub-started": 33,
+  "hub-automated": 33.5,
+  "hub-done": 40
+}

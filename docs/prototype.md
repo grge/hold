@@ -89,3 +89,29 @@ stretch with nothing new is about 6.5 minutes, saving for the hub; everything el
 - Saving for the hub is a flat stretch.
 - The tier-2 view gets busy (labels, many regions); ships at far zoom are hidden, not aggregated.
 - Desktop first: touch works (tap, drag, pinch) but the panel is cramped on phones.
+
+## Drawing, and what it costs
+
+The ground is one fragment shader (`src/render/terrain.js`). Its first version was far too slow in the
+late game: about 700 hashes per pixel for the terrain, five ancestor chains per pixel (for lines), and
+every control area checked for every pixel, five times. Measured by running the page with `?perf`
+(it shows where each frame's time goes) and taking parts of the shader out one at a time:
+
+- **Terrain detail degrades with zoom.** Only about five levels of detail show at any zoom, each
+  shaded by one hash, faded in as its tiles pass a few pixels and out as they fill the screen. Close up
+  you see the level −1 hexagons; far out only broad tiles.
+- **Automated areas are calm**: little ground detail, faint lines, quieter deposits, and their ships
+  only close up (as dots before shapes). Neighbouring automated regions merge into one field.
+- **Regions come from a lookup table**: a small integer texture of level-3 regions around the camera,
+  one fetch per sample however many you hold. Only the flagship, hub, selection and cursor target are
+  checked individually, at the five levels areas live at.
+- **One climb, no arrays.** The pixel and its two neighbours (for lines) climb the levels together in
+  one loop of scalars; a neighbour that meets the pixel's ancestor stops climbing. No integer division
+  (it's emulated on GPUs): every division in the lattice maths is exact, so floats give the same tiles.
+- **Resolution.** The ground is drawn at CSS pixels, and at half that while the camera moves; it sharpens
+  a fifth of a second after it stops.
+
+A frame of ground while panning went from 2.5–7 s to 75–110 ms in headless Chromium's software
+renderer (30–70×), and no longer grows with the game. A check in the browser renders the ground and
+reads back the pixel at every tile centre in view: deposits, and whether each is held, agree with the
+game's own `depositAt` and control areas exactly.

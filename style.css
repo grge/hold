@@ -94,3 +94,5 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px;
   #hint { transform: translateX(-50%); bottom: calc(42vh + 16px); max-width: calc(100vw - 24px); }
   #keys, #toasts { display: none; }
 }
+
+#perf { position: fixed; right: 312px; bottom: 12px; font: 12px var(--mono); color: var(--dim); background: var(--panel); padding: 3px 8px; border-radius: 5px; pointer-events: none; }

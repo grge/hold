@@ -107,7 +107,23 @@ export function minersIn(s, rk) {
   return n
 }
 export const flagRegion = s => key(E.AUTOMATE_LEVEL, tileAt(s.flag.x, s.flag.y, E.AUTOMATE_LEVEL))
-export const automatedRate = s => Object.keys(s.regions).reduce((t, rk) => t + regionRate(s, rk), 0)
+/**
+ * The income of every automated region together. Memoised on a cheap fingerprint (regions keep their
+ * insertion order, so the sequence of miner counts identifies the state), since a late game has
+ * hundreds of regions and this runs every tick.
+ */
+const totalMemo = { key: '', rate: 0 }
+export function automatedRate(s) {
+  let n = 0, h = 0
+  for (const rk in s.regions) { const r = s.regions[rk]; if (r.automated) { n++; h = (Math.imul(h, 31) + r.miners + 1) | 0 } else h = Math.imul(h, 17) | 0 }
+  const k = `${pkey(s)}|${n}|${h}`
+  if (k !== totalMemo.key) {
+    let t = 0
+    for (const rk in s.regions) t += regionRate(s, rk)
+    totalMemo.key = k; totalMemo.rate = t
+  }
+  return totalMemo.rate
+}
 /** Income per second: automated regions exactly, commanded miners by the same trip formula. */
 export function incomeRate(s) {
   const p = params(s)
@@ -172,7 +188,8 @@ export function step(s, dt = TICK) {
   }
 
   // relays under construction
-  for (const [rk, r] of Object.entries(s.regions)) {
+  for (const rk in s.regions) {
+    const r = s.regions[rk]
     if (r.relay && !r.relay.built) {
       r.relay.progress += dt / E.RELAY_BUILD
       if (r.relay.progress >= 1) { r.relay.built = true; r.relay.progress = 1; event(s, 'relay-built', 'Relay built: the whole region is under control') }
@@ -188,7 +205,7 @@ export function step(s, dt = TICK) {
   }
 
   // automated regions earn their steady state, every tick
-  for (const rk of Object.keys(s.regions)) if (s.regions[rk].automated) earn(s, regionRate(s, rk) * dt)
+  earn(s, automatedRate(s) * dt)
 
   // the hub
   const h = s.hub

@@ -35,9 +35,15 @@ export function drawOverlay(ctx, view, s, ui) {
     const { z } = unkey(rk)
     const [x, y] = centre(z, E.AUTOMATE_LEVEL)
     if (!onScreen(x, y, regionScale)) continue
-    if (r.automated && showShips) {
+    // an automated region's ships are its coarse state, drawn: they appear only close up, plainly
+    if (r.automated && shipPx >= 6) {
       const info = S.slotsOf(s, rk)
-      for (const sh of decorativeShips(s.seed, rk, info, r.miners, s.t)) drawMiner(sh, 0.85, TEAL)
+      const ships = decorativeShips(s.seed, rk, info, r.miners, s.t)
+      if (shipPx < 16) {
+        ctx.fillStyle = 'rgba(79,216,200,0.75)'
+        const d = Math.max(2, shipPx * 0.22)
+        for (const sh of ships) if (onScreen(sh.x, sh.y)) ctx.fillRect(X(sh.x) - d / 2, Y(sh.y) - d / 2, d, d)
+      } else for (const sh of ships) drawMiner(sh, 0.85, TEAL)
     }
     if (r.relay) drawRelay(x, y, r, rk === ui.selectedRegion)
     if (r.automated && k * regionScale > 120 && k * regionScale < 1400) {

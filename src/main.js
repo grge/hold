@@ -46,7 +46,9 @@ const ui = { selected: null, selectedRegion: null, mode: null, hover: null, spee
 function resize() {
   view.dpr = Math.min(window.devicePixelRatio || 1, 1.5)
   view.W = Math.round(innerWidth * view.dpr); view.H = Math.round(innerHeight * view.dpr)
-  for (const c of [groundCanvas, overlayCanvas]) { c.width = view.W; c.height = view.H }
+  overlayCanvas.width = view.W; overlayCanvas.height = view.H
+  // the ground is drawn at CSS resolution: its per-pixel cost is what limits the frame rate
+  groundCanvas.width = innerWidth; groundCanvas.height = innerHeight
   ui.groundSig = ''
 }
 resize()
@@ -250,7 +252,7 @@ function toast(text, warn = false) {
   setTimeout(() => el.remove(), 5000)
   while ($('toasts').children.length > 5) $('toasts').firstChild.remove()
 }
-const QUIET = /^(ordered|joined|miner-\d+|flag-arrived|first-delivery|seeded|detached)$/
+const QUIET = /^(ordered|joined|miner-\d+|seeder-\d+|flag-arrived|first-delivery|seeded|detached)$/
 let lastEvent = s.events.length ? s.events[s.events.length - 1].t : 0
 function newEvents() {
   for (const ev of s.events) {
@@ -262,21 +264,35 @@ function newEvents() {
 
 // ---- the areas the ground draws ---------------------------------------------------------------------
 function areas() {
-  const out = []
-  const reach = Math.hypot(view.W, view.H) / 2 / view.s
-  const near = (z, L) => { const [x, y] = centre(z, L); return Math.hypot(x - view.cx, y - view.cy) < reach + 1.2 * spacing(L) }
+  const out = [], regions = []
   if (s.hub) out.push({ level: E.HUB_LEVEL, z: s.hub.z, kind: s.hub.automated ? AREA.HUB : s.hub.built ? AREA.HELD : AREA.BUILDING })
-  for (const [rk, r] of Object.entries(s.regions)) {
-    const { z } = unkey(rk)
-    if (!near(z, E.AUTOMATE_LEVEL)) continue
-    if (r.automated) { if (!(s.hub && s.hub.automated && same(ancestor(z, E.HUB_LEVEL - E.AUTOMATE_LEVEL), s.hub.z)) || view.s * spacing(3) > 30) out.push({ level: 3, z, kind: AREA.AUTO }) }
-    else if (r.relay) out.push({ level: 3, z, kind: r.relay.built ? AREA.HELD : AREA.BUILDING })
+  for (const rk in s.regions) {
+    const r = s.regions[rk], { z } = unkey(rk)
+    // regions inside an automated hub are covered by the hub's own area
+    if (r.automated) { if (!(s.hub && s.hub.automated && same(ancestor(z, E.HUB_LEVEL - E.AUTOMATE_LEVEL), s.hub.z))) regions.push({ z, kind: AREA.AUTO }) }
+    else if (r.relay) regions.push({ z, kind: r.relay.built ? AREA.HELD : AREA.BUILDING })
   }
   out.push({ level: S.flagLevel(s), z: S.flagTile(s), kind: AREA.FLAG, neighbours: true })
   if (ui.selectedRegion) out.push({ level: 3, ...unkey(ui.selectedRegion), kind: AREA.SELECT })
   if (ui.hover) out.push(ui.hover)
-  return out.slice(-96)
+  return { out, regions }
 }
+
+// ---- timing (?perf): where a frame's time goes ---------------------------------------------------------
+const perf = {
+  on: params.has('perf'), forceGround: false, frames: [], last: 0,
+  record(now, sim, ground, overlay, rest) {
+    this.frames.push({ now, sim, ground, overlay, rest })
+    if (this.frames.length > 120) this.frames.shift()
+    if (now - this.last < 500) return
+    this.last = now
+    const avg = k => this.frames.reduce((t, f) => t + f[k], 0) / this.frames.length
+    const span = (this.frames[this.frames.length - 1].now - this.frames[0].now) / Math.max(1, this.frames.length - 1)
+    $('perf').textContent = `${(1000 / span).toFixed(0)} fps · sim ${avg('sim').toFixed(1)} · ground ${avg('ground').toFixed(1)} · overlay ${avg('overlay').toFixed(1)} · ui ${avg('rest').toFixed(1)} ms`
+  },
+  summary() { const avg = k => this.frames.reduce((t, f) => t + f[k], 0) / this.frames.length; return { sim: avg('sim'), ground: avg('ground'), overlay: avg('overlay'), rest: avg('rest') } },
+}
+if (perf.on) { const el = document.createElement('div'); el.id = 'perf'; document.body.appendChild(el) }
 
 // ---- the loop ---------------------------------------------------------------------------------------
 let last = performance.now(), acc = 0, lastPanel = 0, lastSave = performance.now(), lastMaxZoom = S.maxZoomLevel(s)
@@ -284,18 +300,32 @@ function frame(now) {
   const dt = Math.min(0.25, (now - last) / 1000); last = now
   acc += dt * ui.speed
   let n = 0
+  const t0 = performance.now()
   while (acc >= S.TICK && n < 400) { S.step(s, S.TICK); acc -= S.TICK; n++ }
+  const t1 = performance.now()
   if (n >= 400) acc = 0
   newEvents()
   if (S.maxZoomLevel(s) > lastMaxZoom + 1e-9) { lastMaxZoom = S.maxZoomLevel(s); toast('You can zoom out further now.') }
   clampView()
 
   if (terrain) {
-    const ar = areas()
-    const sig = `${view.cx.toFixed(4)},${view.cy.toFixed(4)},${view.s.toFixed(5)},${view.W},${view.H}|` + ar.map(a => `${a.level}:${a.z}:${a.kind}`).join(';')
-    if (sig !== ui.groundSig) { terrain.draw({ cx: view.cx, cy: view.cy, s: view.s, W: view.W, H: view.H, seed: s.seed, areas: ar }); ui.groundSig = sig }
+    const { out: ar, regions } = areas()
+    // while the camera moves the ground is drawn at half resolution (a quarter of the pixels), and
+    // sharp again a fifth of a second after it stops
+    const cam = `${view.cx.toFixed(4)},${view.cy.toFixed(4)},${view.s.toFixed(5)},${view.W},${view.H}`
+    if (cam !== ui.cam) { ui.cam = cam; ui.camMoved = now }
+    const res = now - (ui.camMoved || 0) < 200 ? 0.5 : 1
+    const gw = Math.round(innerWidth * res), gh = Math.round(innerHeight * res)
+    if (groundCanvas.width !== gw || groundCanvas.height !== gh) { groundCanvas.width = gw; groundCanvas.height = gh }
+    const sig = `${cam},${gw}|` + ar.map(a => `${a.level}:${a.z}:${a.kind}`).join(';') + '|' + regions.length + ':' + regions.reduce((h, r) => (Math.imul(h, 31) + r.kind * 977 + r.z[0] * 13 + r.z[1]) | 0, 0)
+    if (sig !== ui.groundSig || perf.forceGround) {
+      terrain.draw({ cx: view.cx, cy: view.cy, s: view.s / view.dpr * (gw / innerWidth), W: groundCanvas.width, H: groundCanvas.height, seed: s.seed, areas: ar, regions }); ui.groundSig = sig
+      if (perf.on) terrain.gl.readPixels(0, 0, 1, 1, terrain.gl.RGBA, terrain.gl.UNSIGNED_BYTE, new Uint8Array(4))   // waits for the GPU
+    }
   }
+  const t2 = performance.now()
   drawOverlay(ctx, view, s, ui)
+  const t3 = performance.now()
   overlayCanvas.classList.toggle('targeting', ui.mode === 'move' || !!selectedShip())
 
   if (now - lastPanel > 200) {
@@ -310,9 +340,10 @@ function frame(now) {
     $('hint').innerHTML = hintFor(s, ui)
   }
   if (now - lastSave > 5000) { save(); lastSave = now }
+  if (perf.on) perf.record(now, t1 - t0, t2 - t1, t3 - t2, performance.now() - t3)
   requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)
 
 // a handle for the console and for tests
-window.hold = { get state() { return s }, S, view, ui }
+window.hold = { get state() { return s }, S, view, ui, perf }

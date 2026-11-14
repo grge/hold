@@ -30,7 +30,7 @@ const float S3 = 1.7320508075688772;
 // Parents without integer division (slow on GPUs): every division here is exact, or a floor of
 // small integers, so float arithmetic gives the same answers as lattice.js.
 const ivec2 DIG[7] = ivec2[7](ivec2(0,0), ivec2(1,0), ivec2(-1,-1), ivec2(0,-1), ivec2(0,1), ivec2(1,1), ivec2(-1,0));
-int resid(ivec2 z){ float v = float(z.x + 4*z.y); return int(v - 7.0*floor(v/7.0 + 1e-4)); }
+int resid(ivec2 z){ float v = float(z.x + 4*z.y); return int(v - 7.0*floor(v/7.0 + 0.0714285)); }   // v/7 is a multiple of 1/7: safe for any rounding
 ivec2 parentOf(ivec2 z){
   ivec2 w = z - DIG[resid(z)];
   return ivec2(int(round(float(2*w.x + w.y) / 7.0)), int(round(float(3*w.y - w.x) / 7.0)));

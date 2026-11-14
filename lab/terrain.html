@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cascade Terrain Lab</title>
+<meta name="description" content="Hold's terrain explorer: fields cascading down the scales, phases as biomes.">
+<link rel="icon" href="data:,">
+<style>
+:root {
+  --bg: #0b0d11; --panel: #12151bf2; --line: #262b35; --text: #d9dde4; --dim: #8a93a3; --accent: #e6b45c;
+  color-scheme: dark;
+}
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); overflow: hidden;
+  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif }
+#view { position: fixed; left: 0; top: 0; width: calc(100vw - 340px); height: 100vh; display: block; cursor: grab; touch-action: none }
+#view.drag { cursor: grabbing }
+#panel { position: fixed; top: 0; right: 0; bottom: 0; width: 340px; background: var(--panel); border-left: 1px solid var(--line);
+  overflow-y: auto; padding: 12px 14px 40px; backdrop-filter: blur(6px) }
+#panel h1 { font-size: 15px; margin: 0 0 2px; letter-spacing: .02em }
+#panel h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin: 16px 0 6px; font-weight: 600 }
+#panel p { margin: 4px 0; color: var(--dim) }
+#panel a { color: var(--accent) }
+.row { display: grid; grid-template-columns: 92px 1fr 44px; gap: 6px; align-items: center; margin: 3px 0 }
+.row label { color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.row output { text-align: right; font-variant-numeric: tabular-nums; color: var(--text) }
+input[type=range] { width: 100%; accent-color: var(--accent) }
+select, input[type=text], input[type=number], button {
+  background: #1a1e26; color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 3px 6px; font: inherit }
+button { cursor: pointer } button:hover { border-color: #3d4554 }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 }
+.checks { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0; color: var(--dim) }
+.phase { border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; margin: 6px 0; background: #0f1217 }
+.phase .head { display: flex; gap: 6px; align-items: center }
+.phase .head input[type=text] { flex: 1; min-width: 0 }
+.phase .head input[type=color] { width: 28px; height: 24px; border: 0; padding: 0; background: none }
+.phase .row { grid-template-columns: 60px 1fr 40px }
+.phase .sel { display: flex; gap: 6px; margin: 4px 0 }
+.phase .sel select { flex: 1; min-width: 0 }
+canvas.chart { width: 100%; display: block; border: 1px solid var(--line); border-radius: 6px; background: #0d1015 }
+#portrait { aspect-ratio: 1; cursor: crosshair }
+#readout { font: 11.5px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--dim); white-space: pre }
+#readout .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; vertical-align: -1px }
+#hud { position: fixed; left: 12px; bottom: 12px; padding: 6px 10px; background: #12151bcc; border: 1px solid var(--line);
+  border-radius: 7px; color: var(--dim); font-variant-numeric: tabular-nums; pointer-events: none }
+#hud b { color: var(--text); font-weight: 600 }
+#toggle { position: fixed; top: 10px; right: 350px; z-index: 2; background: #12151bcc }
+body.collapsed #panel { display: none } body.collapsed #view { width: 100vw; height: 100vh } body.collapsed #toggle { right: 10px }
+#nogl { position: fixed; inset: 0; display: grid; place-items: center; color: var(--dim); padding: 16px; text-align: center }
+@media (max-width: 720px) {
+  #view { width: 100vw; height: 48vh }
+  #panel { top: auto; left: 0; width: auto; height: 52vh; border-left: 0; border-top: 1px solid var(--line) }
+  #toggle { right: 10px; top: 10px }
+  #hud { bottom: calc(52vh + 10px) } body.collapsed #hud { bottom: 12px }
+}
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<button id="toggle" title="Show or hide the panel">Panel</button>
+<div id="hud"></div>
+<aside id="panel">
+  <h1>Cascade terrain lab</h1>
+  <p>Three fields cascade down the Gosper levels; a tile's phase is its biome. Drag to pan, scroll or pinch
+    to zoom, hover to read the chain. <a href="../">Back to the game</a> · <a href="https://github.com/grge/hold/blob/main/docs/terrain-lab.md">how it works</a></p>
+
+  <h2>Phase portrait</h2>
+  <canvas id="portrait" class="chart"></canvas>
+  <p id="portraitNote"></p>
+  <h2>Phases by level, in view</h2>
+  <canvas id="bars" class="chart"></canvas>
+
+  <h2>Under the cursor</h2>
+  <div id="readout">Hover over the terrain.</div>
+
+  <h2>View</h2>
+  <div class="row"><label for="mode">Show</label>
+    <select id="mode"><option value="0">Phases (biomes)</option><option value="1">Field p</option><option value="2">Field a</option><option value="3">Field c</option></select><span></span></div>
+  <div id="viewRows"></div>
+  <div class="checks">
+    <label><input type="checkbox" id="lines" checked> phase lines</label>
+    <label><input type="checkbox" id="contours"> contours</label>
+    <label><input type="checkbox" id="grid"> tiles</label>
+  </div>
+
+  <h2>Cascade</h2>
+  <div class="row"><label for="seed">Seed</label><input type="number" id="seed" min="0" step="1"><button id="reseed" title="New seed">⚄</button></div>
+  <div id="cascadeRows"></div>
+
+  <h2>Phases</h2>
+  <div id="phases"></div>
+  <div class="btns"><button id="addPhase">Add phase</button><button id="randomise">Randomise phases</button></div>
+
+  <h2>Settings</h2>
+  <div class="btns">
+    <select id="preset"></select>
+    <button id="copy">Copy link</button><button id="json">Copy JSON</button><button id="paste">Paste JSON</button>
+    <button id="home">Reset view</button>
+  </div>
+  <p id="msg"></p>
+</aside>
+<div id="nogl" hidden>This page needs WebGL 2.</div>
+<script type="module" src="terrain.js"></script>
+</body>
+</html>

@@ -15,6 +15,9 @@ The concept, and why it's built this way, is in
 [`idle-games-project/prototypes/hold/CONCEPT.md`](https://github.com/grge/idle-games-project/blob/master/prototypes/hold/CONCEPT.md).
 What this first prototype includes, and what it leaves out, is in [docs/prototype.md](docs/prototype.md).
 
+**[Terrain lab](https://grge.github.io/hold/lab/terrain.html)**: a playground for the next terrain, fields
+cascading down the scales with phases as biomes ([docs/terrain-lab.md](docs/terrain-lab.md)).
+
 ## Playing
 
 - **Click a miner, then click a violet deposit** inside your control (the amber outline). It mines and

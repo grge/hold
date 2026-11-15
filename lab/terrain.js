@@ -29,7 +29,7 @@ const PRESETS = {
 
 // ---- state -------------------------------------------------------------------------------------
 let P = clone(DEFAULTS)
-const D = { mode: 0, offset: 1, memory: 0.5, shade: 0.8, lines: true, contours: false, grid: false }
+const D = { mode: 0, offset: 1, memory: 0.5, shade: 0.8, lines: true, contours: false, grid: false, halfres: false }
 const view = { cx: 0, cy: 0, s: 1 }
 const ui = { res: 1, movedAt: 0, hover: null, samples: [], cSlice: 0 }
 
@@ -72,7 +72,7 @@ function changed(what = 'all') {
 function frame() {
   frameQueued = false
   const r = canvas.getBoundingClientRect()
-  const moving = performance.now() - ui.movedAt < 180
+  const moving = D.halfres && performance.now() - ui.movedAt < 180   // optional: half resolution while the camera moves
   ui.res = moving ? 0.5 : 1
   const W = Math.max(1, Math.round(r.width * ui.res)), H = Math.max(1, Math.round(r.height * ui.res))
   if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H }
@@ -272,7 +272,7 @@ function buildStatic() {
     ['warp', 'Warp', 0, 1, 0.01],
   ]) syncers.push(slider(cr, () => P, k, l, a, b, st, f))
   ;['p', 'a', 'c'].forEach((n, i) => syncers.push(slider(cr, () => P, 'root', 'Root ' + n, -1, 1, 0.01, undefined, i)))
-  for (const k of ['lines', 'contours', 'grid']) $(k).addEventListener('change', () => { D[k] = $(k).checked; changed() })
+  for (const k of ['lines', 'contours', 'grid', 'halfres']) $(k).addEventListener('change', () => { D[k] = $(k).checked; changed() })
   $('mode').addEventListener('change', () => { D.mode = +$('mode').value; changed() })
   $('seed').addEventListener('input', () => { P.seed = Math.max(0, Math.floor(+$('seed').value || 0)); changed() })
   $('reseed').onclick = () => { P.seed = Math.floor(Math.random() * 1e6); syncAll(); changed() }
@@ -348,7 +348,7 @@ function syncPhaseInputs() { for (const r of phaseRows) r.sync() }
 function syncAll() {
   for (const r of syncers) r.sync()
   $('seed').value = P.seed; $('mode').value = D.mode
-  for (const k of ['lines', 'contours', 'grid']) $(k).checked = D[k]
+  for (const k of ['lines', 'contours', 'grid', 'halfres']) $(k).checked = D[k]
   buildPhases()
 }
 

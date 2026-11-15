@@ -96,8 +96,8 @@ Two things broke on the GPU, and both are fixed:
   CPU, and the shader adds only each pixel's offset from it.
 
 Cost: about 1 s for a full 1000×820 frame in headless Chromium's software renderer (about 10× the
-game's ground shader; a real GPU is far faster). The page draws at half resolution while the camera
-moves.
+game's ground shader; a real GPU is far faster). An option (off by default) draws at half resolution while
+the camera moves.
 
 ## Open questions for the game
 
